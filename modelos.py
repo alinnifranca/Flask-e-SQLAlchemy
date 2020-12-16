@@ -1,3 +1,5 @@
+from hashlib import sha1
+
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -11,7 +13,8 @@ DB = "jogoteca"
 PORT = 3306
 UPLOAD_PATH = os.path.dirname(os.path.abspath(__file__)) + '/uploads'
 
-engine = create_engine(f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}')
+#engine = create_engine(f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}')
+engine = create_engine('sqlite:///teste_banco.db')
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -26,6 +29,9 @@ class Jogo(Base):
     categoria = Column(String(50), nullable=False)
     console = Column(String(50), nullable=False)
 
+    def __repr__(self):
+        return f"Jogo {self.nome}  com ID {self.id}"
+
 
 class Usuario(Base):
     __tablename__ = 'usuario'
@@ -35,25 +41,30 @@ class Usuario(Base):
     senha = Column(String(50), nullable=False)
 
 
-Base.metadata.create_all(engine)
+    def __repr__(self):
+        return f"Usuario {self.nome} com ID {self.id}"
 
-jogo1 = Jogo(id=10, nome='The Sims 4', categoria='Simulacao', console='PC')
-jogo2 = Jogo(id=20, nome='Skyrim', categoria='RPG', console='PlayStation')
-jogo3 = Jogo(id=30, nome='The Witcher', categoria='RPG', console='PlayStation')
 
-session.add(jogo1)
-session.add(jogo2)
-session.add(jogo3)
+def cria_banco():
+    Base.metadata.create_all(engine)
 
-session.commit()
+    jogo1 = Jogo(nome='The Sims 4', categoria='Simulacao', console='PC')
+    jogo2 = Jogo(nome='Skyrim', categoria='RPG', console='PlayStation')
+    jogo3 = Jogo(nome='The Witcher', categoria='RPG', console='PlayStation')
 
-alinni = Usuario(id=1, nome='Alinni França', senha='1234')
-ezio = Usuario(id=2, nome='Ezio Auditore', senha='insieme')
-bruce = Usuario(id=3, nome='Bruce Wayne', senha='batman')
+    session.add(jogo1)
+    session.add(jogo2)
+    session.add(jogo3)
 
-session.add(alinni)
-session.add(ezio)
-session.add(bruce)
+    session.commit()
 
-session.commit()
-session.close()
+    alinni = Usuario(nome='Alinni França', senha='1234')
+    ezio = Usuario(nome='Ezio Auditore', senha='insieme')
+    bruce = Usuario(nome='Bruce Wayne', senha='batman')
+
+    session.add(alinni)
+    session.add(ezio)
+    session.add(bruce)
+
+    session.commit()
+    # session.close()

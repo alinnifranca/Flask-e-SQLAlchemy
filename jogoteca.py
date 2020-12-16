@@ -1,39 +1,41 @@
-from flask import Flask, render_template, request, redirect, session, flash, url_for, send_from_directory
-from flask_sqlalchemy import SQLAlchemy
-from modelos import Jogo
-from dao import JogoDao, UsuarioDao
+from flask import Flask, render_template, request, redirect, session as flask_session, flash, url_for, send_from_directory
+from modelos import Jogo, session, Usuario
 import time
 import os
 
 app: Flask = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/jogoteca.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
-db = SQLAlchemy(app)
+app.secret_key = b"frase secreta"
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/jogoteca.db'
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 
-jogo_dao = JogoDao(db)
-usuario_dao = UsuarioDao(db)
+# db = SQLAlchemy(app)
+
+# jogo_dao = JogoDao(db)
+# usuario_dao = UsuarioDao(db)
 
 
 @app.route('/')
 def index():
-    lista = jogo_dao.listar()
+    query_jogo = session.query(Jogo)
+    lista = query_jogo.all()
     return render_template('lista.html', titulo='Jogos', jogos=lista)
 
 
 @app.route('/novo')
 def novo():
-    if 'usuario_logado' not in session or session['usuario_logado'] == None:
+    if 'usuario_logado' not in flask_session or flask_session['usuario_logado'] == None:
         return redirect(url_for('login', proxima=url_for('novo')))
     return render_template('novo.html', titulo='Novo Jogo')
 
 
 @app.route('/criar', methods=['POST',])
 def criar():
-    nome = request.form['nome']
+    nome = request.form.get('nome', '')
     categoria = request.form['categoria']
     console = request.form['console']
-    jogo = Jogo(nome, categoria, console)
-    jogo = jogo_dao.salvar(jogo)
+    jogo = Jogo(nome=nome, categoria=categoria, console=console)
+    session.add(jogo)
+    session.commit()
 
     arquivo = request.files['arquivo']
     upload_path = app.config['UPLOAD_PATH']
@@ -44,9 +46,11 @@ def criar():
 
 @app.route('/editar/<int:id>')
 def editar(id):
-    if 'usuario_logado' not in session or session['usuario_logado'] == None:
+    if 'usuario_logado' not in flask_session or flask_session['usuario_logado'] == None:
         return redirect(url_for('login', proxima=url_for('editar')))
-    jogo = jogo_dao.busca_por_id(id)
+
+    query_jogo = session(Jogo)
+    jogo = query_jogo.filter_by(id=id).all()[0]
     nome_imagem = recupera_imagem(id)
     return render_template('editar.html', titulo='Editando Jogo', jogo=jogo
                            , capa_jogo=nome_imagem or 'capa_padrao.jpg')
@@ -75,15 +79,24 @@ def atualizar():
     timestamp = time.time()
     deleta_arquivo(jogo.id)
     arquivo.save(f'{upload_path}/capa{jogo.id}-{timestamp}.jpg')
-    jogo_dao.salvar(jogo)
+    sessio.add(Jogo)
+    session.commit()
+
     return redirect(url_for('index'))
 
 
 @app.route('/deletar/<int:id>')
 def deletar(id):
-    jogo_dao.deletar(id)
-    flash('O jogo foi removido com sucesso!')
+    jogo = session.query(Jogo).filter_by(id=id).all()
+    if len(jogo == 1):
+        session.delete(jogo[0])
+        session.commit()
+        flash(f"Jogo {jogo.nome} removido com sucesso!")
+    else:
+        flash("Jogo não encontrado")
+
     return redirect(url_for('index'))
+
 
 @app.route('/login')
 def login():
@@ -93,21 +106,28 @@ def login():
 
 @app.route('/autenticar', methods=['POST', ])
 def autenticar():
-    usuario = usuario_dao.buscar_por_id(request.form['usuario'])
-    if usuario:
-        if usuario.senha == request.form['senha']:
-            session['usuario_logado'] = usuario.id
-            flash(usuario.nome + ' logou com sucesso!')
-            proxima_pagina = request.form['proxima']
-            return redirect(proxima_pagina)
+    nome_usuario = request.form['usuario']
+
+    usuarios = session.query(Usuario).filter_by(nome=nome_usuario).all()
+    if len(usuarios) != 1:
+        flash('Não logado, tente de novo!')
+        return redirect(url_for('login'))
+
+    usuario = usuarios[0]
+
+    if usuario.senha == request.form['senha']:
+        flask_session['usuario_logado'] = usuario.id
+        flash(usuario.nome + ' logou com sucesso!')
+        proxima_pagina = request.form['proxima']
+        return redirect(proxima_pagina)
     else:
-        flash('Não logado, tente denovo!')
+        flash('Não logado, tente de novo!')
         return redirect(url_for('login'))
 
 
 @app.route('/logout')
 def logout():
-    session['usuario_logado'] = None
+    flask_session['usuario_logado'] = None
     flash('Nenhum usuário logado!')
     return redirect(url_for('index'))
 
