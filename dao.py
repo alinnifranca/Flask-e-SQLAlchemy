@@ -1,4 +1,4 @@
-from prepara_banco import Jogo, Usuario, session, Session
+from modelos import Jogo, Usuario, session, Session
 
 DELETA_JOGO = 'delete from jogo where id = %s'
 JOGO_POR_ID = 'SELECT id, nome, categoria, console from jogo where id = %s'

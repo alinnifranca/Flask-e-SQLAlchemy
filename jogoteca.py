@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, flash, url_for, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
-from prepara_banco import Jogo
+from modelos import Jogo
 from dao import JogoDao, UsuarioDao
 import time
 import os
